@@ -20,22 +20,19 @@ def check_stock():
 
     try:
         r = requests.get(url, headers=headers, timeout=10)
-        
-        if r.status_code == 200:
-            data = r.text.lower()
+        data = r.text.lower()
 
-            # safer logic
-            if "out of stock" in data:
-                return False
-            elif "available" in data or "in stock" in data:
-                return True
-            else:
-                return False
+        if "out of stock" in data:
+            return False
+
+        if "add to cart" in data or "buy now" in data:
+            return True
+
+        return False
 
     except Exception as e:
         print("Request error:", e)
-
-    return False
+        return False
 
 
 print("🚀 Started checking...")
