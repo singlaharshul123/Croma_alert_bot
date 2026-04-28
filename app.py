@@ -1,5 +1,7 @@
-import requests
 import time
+import asyncio
+from playwright.sync_api import sync_playwright
+import requests
 
 BOT_TOKEN = "8293946395:AAHLrBFmcAtWiZDideIMqbDoZnl8W7K8si4"
 CHAT_ID = "5007925991"
@@ -21,33 +23,24 @@ def send_telegram(msg):
         pass
 
 
-def check_stock(product_id, pin):
-    url = f"https://www.croma.com/p/{product_id}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-
+def check_product(page, url):
     try:
-        r = requests.get(url, headers=headers, timeout=10)
-        html = r.text.lower()
+        page.goto(url, timeout=15000)
+        content = page.content().lower()
 
-        # ❌ STRONG OUT OF STOCK SIGNAL
-        if "not available for your pincode" in html:
+        # ❌ OUT OF STOCK SIGNALS
+        if "not available for your pincode" in content:
             return False
 
-        if "notify me" in html and "add to cart" not in html:
+        if "notify me" in content and "add to cart" not in content:
             return False
 
-        # ❌ DELIVERY BLOCK SIGNAL
-        if "not available" in html:
-            return False
+        # ✅ YOUR OBSERVATION BASED SIGNALS
+        has_add_to_cart = "add to cart" in content
+        has_buy_now = "buy now" in content
+        has_delivery = "will be delivered by" in content
 
-        # ✅ YOUR OBSERVATION (VERY IMPORTANT)
-        has_buy_now = "buy now" in html
-        has_add_to_cart = "add to cart" in html
-
-        has_delivery_date = "will be delivered by" in html
-
-        # 🔥 FINAL LOGIC COMBINATION
-        if has_add_to_cart and (has_buy_now or has_delivery_date):
+        if has_add_to_cart and (has_buy_now or has_delivery):
             return True
 
         return False
@@ -56,21 +49,27 @@ def check_stock(product_id, pin):
         return False
 
 
-print("🚀 Smart stock bot started...")
+print("🚀 Playwright stock bot started...")
 
-while True:
-    for pid, name in PRODUCTS.items():
-        for pin in PINCODES:
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
 
-            key = f"{pid}-{pin}"
+    while True:
+        for pid, name in PRODUCTS.items():
+            for pin in PINCODES:
 
-            if key in sent:
-                continue
+                key = f"{pid}-{pin}"
 
-            if check_stock(pid, pin):
-                msg = f"🔥 IN STOCK!\n{name}\nProduct ID: {pid}\nPincode: {pin}"
-                print(msg)
-                send_telegram(msg)
-                sent.add(key)
+                if key in sent:
+                    continue
 
-    time.sleep(5)
+                url = f"https://www.croma.com/p/{pid}"
+
+                if check_product(page, url):
+                    msg = f"🔥 IN STOCK!\n{name}\nProduct: {pid}\nPincode: {pin}"
+                    print(msg)
+                    send_telegram(msg)
+                    sent.add(key)
+
+        time.sleep(5)
