@@ -1,10 +1,10 @@
 import requests
 import time
 
-BOT_TOKEN = "8293946395:AAHLrBFmcAtWiZDideIMqbDoZnl8W7K8si4"
+BOT_TOKEN = "8293946395:AAHLrBFmcAtWiZDideIMqbDoZnl8W7K8si4"   # apna real token yahan dalna
 CHAT_ID = "5007925991"
 
-PRODUCT_CODE = "322042"
+PRODUCT_CODES = ["322042", "321832", "322046"]
 PINCODE = "110001"
 
 def send_telegram(msg):
@@ -14,8 +14,8 @@ def send_telegram(msg):
     except Exception as e:
         print("Telegram error:", e)
 
-def check_stock():
-    url = f"https://www.croma.com/api/v2/product/{PRODUCT_CODE}?pincode={PINCODE}"
+def check_stock(product_code):
+    url = f"https://www.croma.com/api/v2/product/{product_code}?pincode={PINCODE}"
     headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
@@ -35,13 +35,14 @@ def check_stock():
         return False
 
 
-print("🚀 Started checking...")
+print("🚀 Started multi-product checking...")
 
 while True:
-    if check_stock():
-        print("✅ FOUND IN STOCK!")
-        send_telegram(f"🔥 IN STOCK!\nProduct Code: {PRODUCT_CODE}")
-        break
+    for code in PRODUCT_CODES:
+        if check_stock(code):
+            print("✅ FOUND:", code)
+            send_telegram(f"🔥 IN STOCK!\nProduct Code: {code}")
+            time.sleep(10)  # spam avoid
     else:
         print("⏳ checking...")
 
