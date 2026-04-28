@@ -29,15 +29,26 @@ def check_stock(product_id, pin):
         r = requests.get(url, headers=headers, timeout=10)
         html = r.text.lower()
 
-        # REAL SIGNALS (Croma page behavior)
-        if "add to cart" in html:
+        # ❌ STRONG OUT OF STOCK SIGNAL
+        if "not available for your pincode" in html:
+            return False
+
+        if "notify me" in html and "add to cart" not in html:
+            return False
+
+        # ❌ DELIVERY BLOCK SIGNAL
+        if "not available" in html:
+            return False
+
+        # ✅ YOUR OBSERVATION (VERY IMPORTANT)
+        has_buy_now = "buy now" in html
+        has_add_to_cart = "add to cart" in html
+
+        has_delivery_date = "will be delivered by" in html
+
+        # 🔥 FINAL LOGIC COMBINATION
+        if has_add_to_cart and (has_buy_now or has_delivery_date):
             return True
-
-        if "notify me" in html and "out of stock" in html:
-            return False
-
-        if "out of stock" in html:
-            return False
 
         return False
 
@@ -45,7 +56,7 @@ def check_stock(product_id, pin):
         return False
 
 
-print("🚀 Stock bot started...")
+print("🚀 Smart stock bot started...")
 
 while True:
     for pid, name in PRODUCTS.items():
