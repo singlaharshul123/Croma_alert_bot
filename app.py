@@ -40,7 +40,15 @@ print("🚀 BOT DEPLOYED ON RAILWAY - MONITORING START")
 
 with sync_playwright() as p:
     # Use a real-looking User Agent to avoid bot detection
-    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+    browser = p.chromium.launch(
+    headless=True,
+    args=[
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--single-process"
+    ]
+)
     
     while True:
         for pid, name in PRODUCTS.items():
