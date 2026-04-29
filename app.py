@@ -1,5 +1,6 @@
-import requests
 import time
+import requests
+from playwright.sync_api import sync_playwright
 
 BOT_TOKEN = "8293946395:AAHLrBFmcAtWiZDideIMqbDoZnl8W7K8si4"
 CHAT_ID = "5007925991"
@@ -17,30 +18,23 @@ def send(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
-def check(pid, pin):
-    url = f"https://www.croma.com/p/{pid}"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "en-IN,en;q=0.9"
-    }
-
+def check_stock(page):
     try:
-        r = requests.get(url, headers=headers, timeout=10)
-        data = r.text.lower()
-
-        # ❌ OUT OF STOCK
-        if "not available for your pincode" in data:
+        # ❌ OUT OF STOCK signals
+        if page.locator("text=Not Available for your pincode").count() > 0:
             return False
 
-        if "notify me" in data and "add to cart" not in data:
+        if page.locator("text=Notify Me").count() > 0 and page.locator("text=Add to Cart").count() == 0:
             return False
 
-        # ✅ IN STOCK
-        if "add to cart" in data:
-            return True
+        # ✅ IN STOCK signals
+        add = page.locator("text=Add to Cart").count()
+        buy = page.locator("text=Buy Now").count()
+        delivery = page.locator("text=Will be delivered").count()
 
-        if "will be delivered" in data:
+        print(f"Add:{add} Buy:{buy} Delivery:{delivery}")
+
+        if add > 0 and (buy > 0 or delivery > 0):
             return True
 
         return False
@@ -52,21 +46,44 @@ def check(pid, pin):
 
 print("🚀 FINAL BOT RUNNING")
 
-while True:
-    for pid, name in PRODUCTS.items():
-        for pin in PINCODES:
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
+    context = browser.new_context()
+    page = context.new_page()
 
-            key = f"{pid}-{pin}"
+    while True:
+        for pid, name in PRODUCTS.items():
+            for pin in PINCODES:
 
-            if key in sent:
-                continue
+                key = f"{pid}-{pin}"
 
-            print(f"Checking {pid} {pin}")
+                if key in sent:
+                    continue
 
-            if check(pid, pin):
-                msg = f"🔥 IN STOCK!\n{name}\n{pid} ({pin})"
-                print(msg)
-                send(msg)
-                sent.add(key)
+                url = f"https://www.croma.com/p/{pid}"
 
-    time.sleep(5)
+                try:
+                    print(f"Checking {pid} {pin}")
+
+                    page.goto(url, timeout=30000)
+                    time.sleep(3)
+
+                    # try setting pincode
+                    try:
+                        page.click("text=Check Delivery", timeout=5000)
+                        page.fill("input[type='tel']", pin)
+                        page.keyboard.press("Enter")
+                        time.sleep(2)
+                    except:
+                        pass
+
+                    if check_stock(page):
+                        msg = f"🔥 IN STOCK!\n{name}\n{pid} ({pin})"
+                        print(msg)
+                        send(msg)
+                        sent.add(key)
+
+                except Exception as e:
+                    print("Page error:", e)
+
+        time.sleep(5)
