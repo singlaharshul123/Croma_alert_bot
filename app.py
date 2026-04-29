@@ -5,8 +5,11 @@ BOT_TOKEN = "8293946395:AAHLrBFmcAtWiZDideIMqbDoZnl8W7K8si4"
 CHAT_ID = "5007925991"
 
 PRODUCTS = {
-    "315715": "Vivo T4 5G"
+    "315715": "Vivo T4 5G",
+    "320388": "Redmi Note 15 Pro 5G (8GB/128GB Silver Ash)"
 }
+
+PINCODES = ["125120"]
 
 PINCODES = ["125120"]
 
