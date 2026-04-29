@@ -1,6 +1,7 @@
 import time
 import requests
 import re
+import json
 
 BOT_TOKEN = "8293946395:AAHLrBFmcAtWiZDideIMqbDoZnl8W7K8si4"
 CHAT_ID = "5007925991"
@@ -22,35 +23,37 @@ sent = set()
 
 def send(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, data={
-        "chat_id": CHAT_ID,
-        "text": msg
-    })
+    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
 
 def check_stock(pid):
     try:
         url = f"https://www.croma.com/p/{pid}"
         r = requests.get(url, headers=HEADERS, timeout=20)
-        html = r.text.lower()
+        html = r.text
 
-        # ---------- REDMI METHOD ----------
-        # Croma analytics code contains:
-        # k1stock_status~v1in_stock
+        # ========= EXACT MATCH FROM PAGE =========
+        # Google analytics stock field
         if "stock_status~v1in_stock" in html:
             return True
 
-        # ---------- BUTTON METHOD ----------
-        if "add to cart" in html:
+        if '"stock_status":"in_stock"' in html.lower():
             return True
 
-        # ---------- DELIVERY METHOD ----------
-        if "will be delivered by" in html:
+        if '"stockStatus":"IN_STOCK"' in html:
             return True
 
-        # ---------- OUT OF STOCK ----------
-        if "notify me" in html:
-            return False
+        # Buy now means stock
+        if "Buy Now" in html:
+            return True
+
+        # Add to cart means stock
+        if "Add to Cart" in html:
+            return True
+
+        # Delivery available means stock
+        if "will be delivered by" in html.lower():
+            return True
 
         return False
 
@@ -59,7 +62,7 @@ def check_stock(pid):
         return False
 
 
-print("🚀 Croma Stock Bot Running...")
+print("🚀 FINAL CROMA BOT RUNNING")
 
 while True:
     for pid, name in PRODUCTS.items():
@@ -69,10 +72,10 @@ while True:
         stock = check_stock(pid)
 
         if stock:
-            print("IN STOCK")
+            print("🔥 IN STOCK")
 
             if pid not in sent:
-                msg = f"""🔥 IN STOCK ALERT
+                msg = f"""🔥 CROMA STOCK ALERT
 
 {name}
 PINCODE: {PINCODE}
