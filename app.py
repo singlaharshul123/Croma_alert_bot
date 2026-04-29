@@ -1,7 +1,5 @@
-import time
-import asyncio
-from playwright.sync_api import sync_playwright
 import requests
+import time
 
 BOT_TOKEN = "8293946395:AAHLrBFmcAtWiZDideIMqbDoZnl8W7K8si4"
 CHAT_ID = "5007925991"
@@ -15,61 +13,54 @@ PINCODES = ["125120", "126116"]
 
 sent = set()
 
-def send_telegram(msg):
+def send(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     try:
         requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
     except:
-        pass
+        print("Telegram error")
 
+def check(pid, pin):
+    url = f"https://www.croma.com/api/v2/product/{pid}?pincode={pin}"
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-def check_product(page, url):
     try:
-        page.goto(url, timeout=15000)
-        content = page.content().lower()
+        r = requests.get(url, headers=headers, timeout=10)
+        data = r.text.lower()
 
-        # ❌ OUT OF STOCK SIGNALS
-        if "not available for your pincode" in content:
+        print(f"Checking {pid} {pin}")
+
+        # DEBUG print
+        print(data[:200])  
+
+        if "out of stock" in data:
             return False
 
-        if "notify me" in content and "add to cart" not in content:
-            return False
-
-        # ✅ YOUR OBSERVATION BASED SIGNALS
-        has_add_to_cart = "add to cart" in content
-        has_buy_now = "buy now" in content
-        has_delivery = "will be delivered by" in content
-
-        if has_add_to_cart and (has_buy_now or has_delivery):
+        if "add to cart" in data:
             return True
 
         return False
 
-    except:
+    except Exception as e:
+        print("Error:", e)
         return False
 
 
-print("🚀 Playwright stock bot started...")
+print("🚀 Bot started...")
 
-with sync_playwright() as p:
-    browser = p.chromium.launch(headless=True)
-    page = browser.new_page()
+while True:
+    for pid, name in PRODUCTS.items():
+        for pin in PINCODES:
 
-    while True:
-        for pid, name in PRODUCTS.items():
-            for pin in PINCODES:
+            key = f"{pid}-{pin}"
 
-                key = f"{pid}-{pin}"
+            if key in sent:
+                continue
 
-                if key in sent:
-                    continue
+            if check(pid, pin):
+                msg = f"🔥 IN STOCK!\n{name}\n{pid} ({pin})"
+                print(msg)
+                send(msg)
+                sent.add(key)
 
-                url = f"https://www.croma.com/p/{pid}"
-
-                if check_product(page, url):
-                    msg = f"🔥 IN STOCK!\n{name}\nProduct: {pid}\nPincode: {pin}"
-                    print(msg)
-                    send_telegram(msg)
-                    sent.add(key)
-
-        time.sleep(5)
+    time.sleep(5)
