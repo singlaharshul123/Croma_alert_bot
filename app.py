@@ -16,74 +16,72 @@ sent = set()
 
 def send(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
-
-def check_stock(page):
     try:
-        # ❌ OUT OF STOCK signals
-        if page.locator("text=Not Available for your pincode").count() > 0:
-            return False
+        requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
+    except:
+        print("Telegram failed to send")
 
-        if page.locator("text=Notify Me").count() > 0 and page.locator("text=Add to Cart").count() == 0:
-            return False
+def check_stock(page, pid, pin):
+    try:
+        # Check for the common "Out of Stock" button
+        is_notify = page.locator("button:has-text('Notify Me')").is_visible()
+        is_add_to_cart = page.locator("button:has-text('Add to Cart')").is_visible()
+        
+        # Croma specific: Sometimes the button is there but 'Delivery' says not available
+        not_serviceable = page.locator("text=Not Available for your pincode").is_visible()
 
-        # ✅ IN STOCK signals
-        add = page.locator("text=Add to Cart").count()
-        buy = page.locator("text=Buy Now").count()
-        delivery = page.locator("text=Will be delivered").count()
-
-        print(f"Add:{add} Buy:{buy} Delivery:{delivery}")
-
-        if add > 0 and (buy > 0 or delivery > 0):
+        if is_add_to_cart and not not_serviceable:
             return True
-
+        return False
+    except:
         return False
 
-    except Exception as e:
-        print("Error:", e)
-        return False
-
-
-print("🚀 FINAL BOT RUNNING")
+print("🚀 BOT DEPLOYED ON RAILWAY - MONITORING START")
 
 with sync_playwright() as p:
+    # Use a real-looking User Agent to avoid bot detection
     browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-    context = browser.new_context()
-    page = context.new_page()
-
+    
     while True:
         for pid, name in PRODUCTS.items():
             for pin in PINCODES:
-
                 key = f"{pid}-{pin}"
+                if key in sent: continue
 
-                if key in sent:
-                    continue
-
-                url = f"https://www.croma.com/p/{pid}"
-
+                # Fresh context for each check to ensure Pincode actually updates
+                context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                page = context.new_page()
+                
                 try:
-                    print(f"Checking {pid} {pin}")
+                    url = f"https://www.croma.com/p/{pid}"
+                    print(f"🔍 Checking {name} ({pid}) for Pin: {pin}")
+                    
+                    page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    time.sleep(4) # Allow JS to load
 
-                    page.goto(url, timeout=30000)
-                    time.sleep(3)
-
-                    # try setting pincode
+                    # Improved Pincode Entry
                     try:
-                        page.click("text=Check Delivery", timeout=5000)
-                        page.fill("input[type='tel']", pin)
-                        page.keyboard.press("Enter")
-                        time.sleep(2)
+                        # Click the pincode display area
+                        page.click(".pincode-serviceability", timeout=5000)
+                        page.fill("#pincode", pin) # Use the actual ID if known, or generic
+                        page.press("#pincode", "Enter")
+                        time.sleep(3)
                     except:
-                        pass
+                        pass # If already set or selector changed
 
-                    if check_stock(page):
-                        msg = f"🔥 IN STOCK!\n{name}\n{pid} ({pin})"
+                    if check_stock(page, pid, pin):
+                        msg = f"🔥 IN STOCK ALERT!\n📦 {name}\n📍 Pincode: {pin}\n🔗 https://www.croma.com/p/{pid}"
                         print(msg)
                         send(msg)
                         sent.add(key)
+                    else:
+                        print(f"❌ {pid} Out of Stock for {pin}")
 
                 except Exception as e:
-                    print("Page error:", e)
-
-        time.sleep(5)
+                    print(f"⚠️ Page error on {pid}: {e}")
+                
+                page.close()
+                context.close()
+        
+        print("Waiting 60 seconds for next cycle...")
+        time.sleep(60) # Don't spam too fast or Croma will ban your IP
