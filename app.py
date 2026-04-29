@@ -1,39 +1,25 @@
 import time
 import requests
+import re
 
-# =========================
-# TELEGRAM SETTINGS
-# =========================
 BOT_TOKEN = "8293946395:AAHLrBFmcAtWiZDideIMqbDoZnl8W7K8si4"
 CHAT_ID = "5007925991"
 
-# =========================
-# PRODUCTS
-# =========================
 PRODUCTS = {
     "315715": "Vivo T4 5G",
     "320388": "Redmi Note 15 Pro 5G"
 }
 
-# =========================
-# PINCODE
-# =========================
 PINCODE = "125120"
 
-# =========================
-# HEADERS
-# =========================
 HEADERS = {
     "User-Agent": "Mozilla/5.0",
     "Accept-Language": "en-IN,en;q=0.9"
 }
 
-# Avoid duplicate alerts
 sent = set()
 
-# =========================
-# TELEGRAM MESSAGE
-# =========================
+
 def send(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.post(url, data={
@@ -41,22 +27,30 @@ def send(msg):
         "text": msg
     })
 
-# =========================
-# CHECK STOCK
-# =========================
+
 def check_stock(pid):
     try:
         url = f"https://www.croma.com/p/{pid}"
-        r = requests.get(url, headers=HEADERS, timeout=15)
-        text = r.text.lower()
+        r = requests.get(url, headers=HEADERS, timeout=20)
+        html = r.text.lower()
 
-        # Detect analytics stock tag
-        if "v1in_stock" in text:
+        # ---------- REDMI METHOD ----------
+        # Croma analytics code contains:
+        # k1stock_status~v1in_stock
+        if "stock_status~v1in_stock" in html:
             return True
 
-        # Detect Add to cart button
-        if "add to cart" in text:
+        # ---------- BUTTON METHOD ----------
+        if "add to cart" in html:
             return True
+
+        # ---------- DELIVERY METHOD ----------
+        if "will be delivered by" in html:
+            return True
+
+        # ---------- OUT OF STOCK ----------
+        if "notify me" in html:
+            return False
 
         return False
 
@@ -64,35 +58,33 @@ def check_stock(pid):
         print("Error:", e)
         return False
 
-# =========================
-# MAIN LOOP
-# =========================
-print("🚀 Croma Bot Started")
+
+print("🚀 Croma Stock Bot Running...")
 
 while True:
     for pid, name in PRODUCTS.items():
 
-        print("Checking:", name)
+        print(f"Checking {name} | PIN {PINCODE}")
 
-        in_stock = check_stock(pid)
+        stock = check_stock(pid)
 
-        if in_stock:
+        if stock:
+            print("IN STOCK")
+
             if pid not in sent:
                 msg = f"""🔥 IN STOCK ALERT
 
 {name}
-Pincode: {PINCODE}
+PINCODE: {PINCODE}
 
 https://www.croma.com/p/{pid}
 """
                 send(msg)
                 sent.add(pid)
-                print("Alert sent")
 
         else:
             print("Still out of stock")
 
-            # reset when out of stock again
             if pid in sent:
                 sent.remove(pid)
 
