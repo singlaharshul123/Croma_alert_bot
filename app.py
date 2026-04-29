@@ -15,28 +15,32 @@ sent = set()
 
 def send(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    try:
-        requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
-    except:
-        print("Telegram error")
+    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
 def check(pid, pin):
-    url = f"https://www.croma.com/api/v2/product/{pid}?pincode={pin}"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    url = f"https://www.croma.com/p/{pid}"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "en-IN,en;q=0.9"
+    }
 
     try:
         r = requests.get(url, headers=headers, timeout=10)
         data = r.text.lower()
 
-        print(f"Checking {pid} {pin}")
-
-        # DEBUG print
-        print(data[:200])  
-
-        if "out of stock" in data:
+        # ❌ OUT OF STOCK
+        if "not available for your pincode" in data:
             return False
 
+        if "notify me" in data and "add to cart" not in data:
+            return False
+
+        # ✅ IN STOCK
         if "add to cart" in data:
+            return True
+
+        if "will be delivered" in data:
             return True
 
         return False
@@ -46,7 +50,7 @@ def check(pid, pin):
         return False
 
 
-print("🚀 Bot started...")
+print("🚀 FINAL BOT RUNNING")
 
 while True:
     for pid, name in PRODUCTS.items():
@@ -56,6 +60,8 @@ while True:
 
             if key in sent:
                 continue
+
+            print(f"Checking {pid} {pin}")
 
             if check(pid, pin):
                 msg = f"🔥 IN STOCK!\n{name}\n{pid} ({pin})"
