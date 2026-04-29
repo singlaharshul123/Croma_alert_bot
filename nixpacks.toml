@@ -1,5 +1,40 @@
 [phases.setup]
-nixPkgs = ["...", "glib", "nss", "nspr", "atk", "at-spi2-atk", "libdrm", "expat", "libxcb", "libxkbcommon", "mesa", "alsa-lib", "pango", "cairo"]
+nixPkgs = [
+  "python313",
+  "glib",
+  "nss",
+  "nspr",
+  "atk",
+  "at-spi2-atk",
+  "cups",
+  "dbus",
+  "libdrm",
+  "expat",
+  "libxcb",
+  "libxkbcommon",
+  "mesa",
+  "alsa-lib",
+  "pango",
+  "cairo",
+  "gtk3",
+  "libgbm",
+  "xorg.libX11",
+  "xorg.libXcomposite",
+  "xorg.libXdamage",
+  "xorg.libXext",
+  "xorg.libXfixes",
+  "xorg.libXi",
+  "xorg.libXrandr",
+  "xorg.libXtst",
+  "xorg.libXScrnSaver",
+  "xorg.libxcb"
+]
 
 [phases.build]
-cmds = ["pip install -r requirements.txt", "playwright install --with-deps chromium"]
+cmds = [
+  "pip install -r requirements.txt",
+  "playwright install chromium"
+]
+
+[start]
+cmd = "python app.py"
